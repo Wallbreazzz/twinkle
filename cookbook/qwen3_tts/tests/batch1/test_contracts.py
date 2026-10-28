@@ -91,6 +91,19 @@ class Model(nn.Module):
 
 
 class Contracts(unittest.TestCase):
+    def test_initialize_accepts_local_mode(self):
+        tree = ast.parse((ROOT / 'scripts/train_qwen3_tts_lora.py').read_text(encoding='utf-8'))
+        calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Attribute) and node.func.attr == 'initialize']
+        self.assertEqual(len(calls), 1)
+        seen = []
+        def initialize(mode, global_device_mesh):
+            self.assertIn(mode, ('local', 'ray'))  # pinned Twinkle's accepted contract
+            self.assertEqual(mode, 'local')
+            seen.append(global_device_mesh)
+        eval(compile(ast.Expression(calls[0]), '<initialize>', 'eval'),
+             {'twinkle': types.SimpleNamespace(initialize=initialize), 'device_mesh': 'single'})
+        self.assertEqual(seen, ['single'])
 
     def test_codec_single_list_tensor_and_batch_tensor(self):
         expected = np.arange(48).reshape(3, 16)
