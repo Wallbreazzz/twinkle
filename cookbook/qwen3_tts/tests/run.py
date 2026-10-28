@@ -14,10 +14,12 @@ args = parser.parse_args()
 if args.npu and not os.environ.get('MODEL_PATH'):
     parser.error('--npu requires MODEL_PATH pointing to an existing local model')
 modules = ['batch1/test_contracts.py', 'lora/test_contracts.py', 'training/test_contracts.py',
-           'entrypoint/test_contracts.py', 'entrypoint/test_preparation.py']
+           'entrypoint/test_contracts.py', 'entrypoint/test_preparation.py',
+           'entrypoint/test_generation_contracts.py', 'entrypoint/test_evaluation_contracts.py',
+           'entrypoint/test_review_summary.py']
 if args.npu:
     modules += ['lora/test_real_model.py', 'entrypoint/test_prepared_training_npu.py',
-                'entrypoint/test_process_resume_npu.py']
+                'entrypoint/test_process_resume_npu.py', 'entrypoint/test_sampled_workflow_npu.py']
 for module in modules:
     extra = ['--isolated-twinkle'] if args.isolated and module.startswith(('batch1/', 'lora/')) else []
     print('Running: ' + module, flush=True)

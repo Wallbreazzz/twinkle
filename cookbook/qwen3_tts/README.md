@@ -7,8 +7,8 @@ with a final short window, and restart at completed optimizer updates.
 
 It is a single-card reference implementation, not a quality-tuned training
 recipe. There are no changes to Twinkle core or its default dependencies.
-Generation, speaker-similarity evaluation and experimental EOS handling are
-outside this contribution.
+Paired generation and human-review tools are documented in [GENERATION.md](GENERATION.md).
+Experimental EOS handling is excluded; no automatic speaker-similarity metric is provided.
 
 ## Installation and supported scope
 
@@ -147,8 +147,9 @@ gradients/updates, unchanged frozen parameters, exact saved/reloaded adapter
 weights, accumulation tails and restart in separate processes. Final adapter
 weights matched exactly in the resume comparison; optimizer states were
 compared with rtol=1e-3/atol=1e-5. Those results do not establish long-training
-stability, speaker similarity or fine-tuning quality. The reorganized PR tree
-requires its own final NPU regression before the draft is marked ready.
+stability, speaker similarity or fine-tuning quality. The four-layer training tree passed its final 40-test NPU regression.
+The additional generation/review packaging requires a new targeted NPU regression;
+CPU checks alone do not validate the reorganized generation entry point.
 
 ## Integration boundaries
 
