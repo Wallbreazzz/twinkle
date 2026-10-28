@@ -30,6 +30,7 @@ from tts.qwen3.data import Qwen3TTSDataConfig, build_qwen3_sample, collate_qwen3
 from tts.qwen3.input_processor import Qwen3TTSInputProcessor
 from tts.qwen3.forward import qwen3_tts_forward_step
 from tts.qwen3.loss import Qwen3TTSLoss
+from tts.qwen3.model import Qwen3TTSModel
 
 spec = importlib.util.spec_from_file_location('prepare', ROOT / 'scripts/audio_features.py')
 prepare = importlib.util.module_from_spec(spec)
@@ -146,6 +147,47 @@ class Contracts(unittest.TestCase):
         with self.assertRaises(ValueError):
             Qwen3TTSInputProcessor(padding_free=True)(batch, model=Model())
 
+    def test_wrapper_forward_alignment_and_every_head_gradient(self):
+        for n in (1,2):
+            cfg, rows, mels = samples(n)
+            batch = collate_qwen3_batch(rows, cfg, mels)
+            model = Model()
+            status = types.SimpleNamespace()
+            config = types.SimpleNamespace(processor=Qwen3TTSInputProcessor(), train_status=status)
+            wrapper = types.SimpleNamespace(
+                model=model, optimizer_group={'default':config},
+                _get_default_group=lambda:'default', _lazy_wrap_model=lambda:None,
+                _not_encoded=lambda x:False, sp_strategy=None, hf_config=None)
+            outputs = inspect.unwrap(Qwen3TTSModel.forward)(wrapper, inputs=batch)
+            t = model.talker
+            labels = torch.as_tensor(batch['codec_0_labels'])
+            self.assertTrue(torch.equal(t.labels, labels))
+            expected = nn.functional.cross_entropy(t.logits[:,:-1].reshape(-1,64),
+                                                   labels[:,1:].reshape(-1))
+            torch.testing.assert_close(outputs['talker_loss'], expected)
+            mask = torch.as_tensor(batch['codec_mask'])
+            torch.testing.assert_close(t.selected_hidden, t.hidden[mask])
+            codes = torch.as_tensor(batch['codec_ids'])[mask]
+            torch.testing.assert_close(outputs['sub_talker_labels'], codes[:,1:])
+            loss = Qwen3TTSLoss()({}, outputs)['loss']
+            self.assertTrue(torch.isfinite(loss))
+            loss.backward()
+            for b,row in enumerate(rows):
+                targets = np.where(row['codec_0_labels'] != -100)[0]
+                self.assertGreater(t.logits.grad[b,targets[0]-1].abs().sum().item(), 0)
+                self.assertGreater(t.logits.grad[b,targets[-1]-1].abs().sum().item(), 0)  # EOS
+            shifted_valid = nn.functional.pad(labels[:,1:] != -100, (0,1))
+            self.assertEqual(t.logits.grad[~shifted_valid].abs().sum().item(), 0)
+            # Every head receives its own label, including cb1 and cb15.
+            want = t.sub_logits.detach().softmax(-1)
+            want.scatter_add_(-1, codes[:,1:,None], -torch.ones_like(codes[:,1:,None], dtype=want.dtype))
+            want *= 0.3 / (codes.shape[0]*15)
+            torch.testing.assert_close(t.sub_logits.grad, want)
+            for head in t.heads:
+                self.assertTrue(torch.isfinite(head.weight.grad).all())
+                self.assertGreater(head.weight.grad.abs().sum().item(), 0)
+            self.assertIs(status.outputs['talker_loss'], outputs['talker_loss'])
+            self.assertEqual(status.loss_value, 0)
 
     def test_talker_time_shift_independent_of_processor(self):
         cfg, rows, mels = samples()
