@@ -161,3 +161,23 @@ defaults and calls `_lazy_wrap_model` when inspecting/loading wrapped weights.
 These internal dependencies are isolated here and should be reviewed when
 Twinkle changes. A public generic TTS abstraction should only be added if
 maintainers identify a reusable need; this cookbook does not add one prematurely.
+
+
+## Causal conditioning correction
+
+Residual-codebook training uses the Talker state **before** consuming the target
+audio frame, matching generation's `past_hidden`. Selecting the state at the
+target frame leaks its codebook embeddings into the conditioning. A regression
+changes the target residual codes and checks that the current conditioning stays
+unchanged while the next frame's conditioning changes. Earlier update/reload
+tests did not establish this causal equivalence.
+
+The corrected forward and targeted contracts were validated on a single Ascend
+NPU workflow, followed by real-data multi-step training and paired listening.
+These results do not establish quality for arbitrary datasets or checkpoints.
+
+The `1e-4` CLI default is an example, not a tuned recommendation. In one small
+single-speaker evaluation, `2e-5` with rank 8, alpha 16, dropout 0.1 and 70
+updates preserved content better than `1e-4`; later checkpoints were not always
+better. Treat these as dataset-specific observations and select checkpoints
+with held-out content and listening, not training loss alone.

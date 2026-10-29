@@ -26,8 +26,8 @@ def read_suite(path, train_jsonl):
                 raise ValueError(f'Suite field {field} must be a nonempty string')
         if not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,63}', row['id']) or row['id'] in ids:
             raise ValueError('Suite IDs must be unique safe path components')
-        if row['language'] not in ('English', 'Chinese'):
-            raise ValueError('This suite supports English or Chinese')
+        if row['language'] not in ('Auto', 'English', 'Chinese'):
+            raise ValueError('This suite supports Auto, English or Chinese')
         key = text_key(row['text'])
         if key in train_texts or key in texts:
             raise ValueError('Evaluation text overlaps training or another case')

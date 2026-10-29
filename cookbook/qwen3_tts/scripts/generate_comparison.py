@@ -74,7 +74,9 @@ def parse_args(argv=None):
     choice.add_argument('--text')
     choice.add_argument('--prompts_jsonl')
     parser.add_argument('--train_jsonl', help='Required for a suite: rejects text overlap with this training manifest')
-    parser.add_argument('--language', default='English')
+    parser.add_argument('--language', default='Auto', help='Single-pair language; Auto matches the training prefix')
+    parser.add_argument('--conditioning_language', choices=('Auto', 'prompt'), default='Auto',
+                        help='Auto matches training; prompt explicitly uses each text language')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--max_new_tokens', type=int, default=128)
     parser.add_argument('--decoding', choices=('greedy','sampled'), default='sampled',
@@ -85,6 +87,10 @@ def parse_args(argv=None):
     if args.prompts_jsonl and not args.train_jsonl:
         parser.error('--train_jsonl is required with --prompts_jsonl')
     return args
+
+
+def effective_language(case, args):
+    return 'Auto' if args.conditioning_language == 'Auto' else case['language']
 
 
 def main():
@@ -153,7 +159,7 @@ def main():
             max_new_tokens=args.max_new_tokens,non_streaming_mode=True)
     common = dict(format_version=1, seed=args.seed, decoding=args.decoding,
                   tail_policy='none',
-                  mode='x_vector_only', settings=settings, reference_sha256=file_hash(reference),
+                  mode='x_vector_only', conditioning_language=args.conditioning_language, settings=settings, reference_sha256=file_hash(reference),
                   model_content_sha256=model_fingerprint(path),
                   adapter_sha256=file_hash(checkpoint/'adapter_model.safetensors'),
                   adapter_config_sha256=file_hash(checkpoint/'adapter_config.json'),
@@ -167,7 +173,8 @@ def main():
         case_out = out/case['id'] if args.prompts_jsonl else out
         if args.prompts_jsonl:
             case_out.mkdir()
-        report = dict(common, case_id=case['id'], text=case['text'], language=case['language'], outputs={})
+        report = dict(common, case_id=case['id'], text=case['text'], language=case['language'],
+                      effective_language=effective_language(case, args), outputs={})
         for label in ('base', 'adapter'):
             random.seed(args.seed)
             np.random.seed(args.seed)
@@ -177,7 +184,7 @@ def main():
                 if any(m.disable_adapters != (label == 'base') or ADAPTER not in m.active_adapters for m in lora_layers):
                     raise AssertionError('Unexpected adapter activation state')
                 with torch.inference_mode(), capture_stop(core.talker, core.config.talker_config.codec_eos_token_id) as stop:
-                    waves, sr = official.generate_voice_clone(text=case['text'], language=case['language'],
+                    waves, sr = official.generate_voice_clone(text=case['text'], language=effective_language(case, args),
                         voice_clone_prompt=prompt, **settings)
             if len(waves) != 1 or not stop:
                 raise AssertionError('Expected one observed generation and waveform')
@@ -194,7 +201,7 @@ def main():
             adapter_sha256=common['adapter_sha256'], reference_source_sha256=common['reference_sha256'],
             reference_audio=reference_stats, prompts_sha256=file_hash(args.prompts_jsonl),
             train_manifest_sha256=file_hash(args.train_jsonl), seed=args.seed, settings=settings,
-            decoding=args.decoding,
+            decoding=args.decoding, conditioning_language=args.conditioning_language,
             tail_policy='none',tail_frames=0,
             text_overlap_checked=True, pretraining_overlap_unknown=True)
         (out/'prompts.jsonl').write_bytes(Path(args.prompts_jsonl).read_bytes())

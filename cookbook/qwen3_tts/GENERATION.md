@@ -86,3 +86,17 @@ its twelve waveforms matched previously listened-to outputs sample for sample.
 This reorganized follow-up removes experimental branches and imports the
 packaged runtime, so it still needs its own targeted NPU run before upstream
 submission. Neither result establishes convergence or target-speaker similarity.
+
+
+## Match the training prefix
+
+Generation now defaults to `--conditioning_language Auto`, matching the
+training layout without an explicit language token. Suite `language` remains
+text metadata; each comparison records `effective_language`. The explicit
+`--conditioning_language prompt` option reproduces language-tagged conditioning
+and should only be used deliberately. `--language` defaults to Auto for a
+single pair. Both variants always use the same effective language.
+
+The prior Chinese-tagged evaluation did not match the Auto training prefix.
+The causal forward correction and Auto conditioning were tested together;
+their individual contributions to quality have not been isolated.

@@ -22,6 +22,10 @@ class GenerationContracts(unittest.TestCase):
                 '--output_dir', 'out', '--text', 'Hello.']
         args = generation.parse_args(base)
         self.assertEqual(args.decoding, 'sampled')
+        self.assertEqual(args.language, 'Auto')
+        self.assertEqual(generation.effective_language({'language': 'Chinese'}, args), 'Auto')
+        explicit = generation.parse_args(base + ['--conditioning_language', 'prompt'])
+        self.assertEqual(generation.effective_language({'language': 'Chinese'}, explicit), 'Chinese')
         self.assertEqual(generation.parse_args(base + ['--decoding', 'greedy']).decoding, 'greedy')
         with self.assertRaises(SystemExit):
             generation.parse_args(base + ['--decoding', 'greedy', '--tail_frames', '3'])
