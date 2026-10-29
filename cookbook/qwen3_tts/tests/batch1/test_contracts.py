@@ -90,6 +90,22 @@ class Model(nn.Module):
 
 
 class Contracts(unittest.TestCase):
+    def test_current_frame_residual_codes_do_not_leak_into_condition(self):
+        cfg, rows, mels = samples(1)
+        raw = collate_qwen3_batch(rows, cfg, mels)
+        model = Model()
+        processor = Qwen3TTSInputProcessor()
+        batch = processor(raw, model=model)
+        qwen3_tts_forward_step(model, batch)
+        before = model.talker.selected_hidden.detach().clone()
+        changed = {k: v.clone() for k,v in batch.items()}
+        first = int(torch.where(changed['codec_mask'][0])[0][0])
+        changed['codec_ids'][0, first, 1:] = (changed['codec_ids'][0, first, 1:] + 1) % 64
+        qwen3_tts_forward_step(model, changed)
+        torch.testing.assert_close(model.talker.selected_hidden[0], before[0], rtol=0, atol=0)
+        self.assertFalse(torch.equal(model.talker.selected_hidden[1], before[1]))
+
+
 
     def test_codec_single_list_tensor_and_batch_tensor(self):
         expected = np.arange(48).reshape(3, 16)

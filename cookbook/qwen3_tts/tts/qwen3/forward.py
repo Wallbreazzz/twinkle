@@ -71,7 +71,7 @@ def qwen3_tts_forward_step(
     # ---- ④ 第二段 forward：Code predictor 预测码本 1-15（向量化，一次喂所有目标帧）----
     # 注：forward_sub_talker_finetune 已向量化（输入 [N,16]+[N,H] → 内部 [N,16,H] 一次前向），
     hidden = outputs.hidden_states[0][-1]                 # [B, T, H]
-    talker_hidden = hidden[codec_mask]                    # 每帧对应位置的 hidden，不含 EOS/pad
+    talker_hidden = hidden[:, :-1][codec_mask[:, 1:]]                    # Use the state that predicted cb0, before consuming this frame; no target leakage
     talker_codec_ids = codec_ids[codec_mask]             # [N, 16]
     sub_talker_logits, _sub_loss_ignored = talker.forward_sub_talker_finetune(
         talker_codec_ids, talker_hidden

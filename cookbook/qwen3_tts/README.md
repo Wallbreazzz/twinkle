@@ -13,3 +13,17 @@ Install Twinkle from the repository root (`pip install -e .`) and optional depen
 From this cookbook directory, run `python tests/batch1/test_contracts.py`. CPU development without Twinkle/Qwen can use `--isolated-twinkle`; this substitutes infrastructure and skips two official package checks. It is not native or NPU validation.
 
 The final series tree is byte-identical to the integrated training baseline 0466bd2 that passed 40 tests on one Ascend NPU. Individual intermediate layers receive CPU checks; they have not independently been rerun on NPU. No convergence or voice-similarity result is claimed. The model bridge depends on Twinkle internal optimizer-group and wrapping APIs; these remain confined to this cookbook.
+
+
+## Causal conditioning correction
+
+Residual-codebook training uses the Talker state **before** consuming the target
+audio frame, matching generation's `past_hidden`. Selecting the state at the
+target frame leaks its codebook embeddings into the conditioning. A regression
+changes the target residual codes and checks that the current conditioning stays
+unchanged while the next frame's conditioning changes. Earlier update/reload
+tests did not establish this causal equivalence.
+
+The corrected forward and targeted contracts were validated on a single Ascend
+NPU workflow, followed by real-data multi-step training and paired listening.
+These results do not establish quality for arbitrary datasets or checkpoints.
