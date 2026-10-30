@@ -6,11 +6,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tests"))
 sys.path.insert(0, str(ROOT / 'tests/batch1'))
 import test_contracts as previous
 import torch
 from torch import nn
-from tts.qwen3.runtime import data_config, frozen_digest, trainable_snapshot, assert_updated, assert_gradients
+from tts.qwen3.runtime import data_config
+from model_assertions import frozen_digest, trainable_snapshot, assert_updated, assert_gradients
 
 
 class AcceptanceContracts(unittest.TestCase):
