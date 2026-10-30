@@ -7,45 +7,26 @@ import torch.nn.functional as F
 
 from twinkle.data_format import LossOutput
 
-from tts.common import MultiCodebookLoss
+from twinkle.loss.base import Loss
 
 
-def _shift_ce_like_official(logits, labels, ignore_index=-100):
-    """复刻 transformers ForCausalLMLoss 的 shift 语义（含 off-by-one，仅供 shift_labels=True 对照）。
-
-    logits [N, C, V]，labels [N, C]。
-    """
-    from transformers.loss.loss_utils import ForCausalLMLoss
-
-    return ForCausalLMLoss(
-        logits=logits,
-        labels=labels,
-        vocab_size=logits.shape[-1],
-        ignore_index=ignore_index,
-    )
-
-
-class Qwen3TTSLoss(MultiCodebookLoss):
+class Qwen3TTSLoss(Loss):
     """Qwen3-TTS 2 段式 loss。
 
     Args:
         sub_loss_weight: code_predictor 段权重（官方 0.3）。
-        shift_labels: code_predictor 段是否做标准 LM shift。
-            False（默认）= 修正 off-by-one，同位 per-head CE（无 shift）；
-            True = 复现官方 ForCausalLMLoss 含 shift（仅用于对照）。
         ignore_index: 忽略的 label 值（非音频帧 / pad）。
     """
+
+    require_logps = False
+    require_logits = True
 
     def __init__(
         self,
         sub_loss_weight: float = 0.3,
-        shift_labels: bool = False,
         ignore_index: int = -100,
-        ar_codebook: int = 0,
     ):
-        super().__init__(ar_codebook=ar_codebook)
         self.sub_loss_weight = sub_loss_weight
-        self.shift_labels = shift_labels
         self.ignore_index = ignore_index
 
     def __call__(self, inputs, outputs, **kwargs) -> LossOutput:
@@ -55,17 +36,10 @@ class Qwen3TTSLoss(MultiCodebookLoss):
         sub_logits = outputs['sub_talker_logits']   # [N, 15, V]
         sub_labels = outputs['sub_talker_labels']   # [N, 15]
 
-        if self.shift_labels:
-            sub_loss = _shift_ce_like_official(sub_logits, sub_labels, self.ignore_index)
-        else:
-            V = sub_logits.shape[-1]
-            # 同位 per-head CE（无 shift）：logits[:,j] 预测码本 j+1 ↔ labels[:,j]=码本 j+1
-            sub_loss = F.cross_entropy(
-                sub_logits.reshape(-1, V),
-                sub_labels.reshape(-1),
-                ignore_index=self.ignore_index,
-                reduction='mean',
-            )
+        vocab = sub_logits.shape[-1]
+        sub_loss = F.cross_entropy(
+            sub_logits.reshape(-1, vocab), sub_labels.reshape(-1),
+            ignore_index=self.ignore_index, reduction='mean')
 
         total = talker_loss + self.sub_loss_weight * sub_loss
         # 两段均 per-token mean（镜像官方 sft_12hz.py：outputs.loss 与 sub_loss 都是 mean）。
