@@ -9,6 +9,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tests"))
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / 'tests/training'))
 import test_resume_npu as previous
@@ -17,7 +18,7 @@ import torch
 from safetensors.torch import load_file
 from qwen_tts.core.models.modeling_qwen3_tts import Qwen3TTSTokenizer
 from tts.qwen3.manifest import sample_plan, planned_windows
-from tts.qwen3.speech_fixture import load_speech_fixture
+from speech_fixture import load_speech_fixture
 from tts.qwen3.runtime import DEFAULT_MODEL_PATH
 
 
