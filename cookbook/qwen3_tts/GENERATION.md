@@ -1,102 +1,29 @@
-# Paired generation and human review
+# Generate speech with a trained adapter
 
-This follow-up builds on the training cookbook. It generates the same text with
-the base model (adapter disabled) and the loaded adapter, using the same seed,
-reference and generation settings. It verifies loaded adapter weights and
-activation state. A difference in voice is not evidence of improved similarity.
-
-Use the optional dependencies and local 1.7B Base model described in README.md.
-Run from `cookbook/qwen3_tts`, selecting one Ascend device:
+Run in the cookbook directory with the existing local model and optional dependencies:
 
 ```bash
-export ASCEND_RT_VISIBLE_DEVICES=0
-export MODEL_PATH=/models/Qwen3-TTS-12Hz-1.7B-Base
-python scripts/generate_comparison.py \
-  --model_path "$MODEL_PATH" \
-  --checkpoint /data/run/checkpoint-update-10 \
-  --reference_audio /data/train-reference.wav \
-  --train_jsonl /data/derived/train.jsonl \
-  --prompts_jsonl tests/fixtures/evaluation/prompts.jsonl \
-  --output_dir outputs/comparison-new --seed 43 --max_new_tokens 256
+ASCEND_RT_VISIBLE_DEVICES=0 python scripts/generate.py \
+  --model_path /models/Qwen3-TTS-12Hz-1.7B-Base \
+  --checkpoint /data/run/checkpoint-update-70 \
+  --reference_audio /data/reference.wav \
+  --text "A new sentence to synthesize." \
+  --output /data/generated.wav
 ```
 
-The output directory must be new. Use the intended training reference for
-speaker-only conditioning. The default is sampled decoding in both prediction
-branches, using the pinned official wrapper's resolved settings. `--decoding
-greedy` is an explicit diagnostic alternative. EOS deferral and the historical
-diagnostic scripts are not included. All models are loaded locally; there is no
-download fallback. Codec execution uses CPU fp32 and the TTS model NPU bf16.
+Omit `--checkpoint` to use the base model. The output must be new. `--seed`
+(default 42) controls sampling, and `--max_new_tokens` (default 256) bounds
+length. The reference must be finite mono 16/24 kHz audio from the intended
+speaker. Prefer the reference used to prepare training data.
 
-For a single pair, replace `--prompts_jsonl` and `--train_jsonl` with
-`--text "A new sentence." --language English`. Single-pair mode does not check
-training-text overlap or create the suite review page.
+Auto language conditioning and speaker-only cloning match this cookbook's
+training prefix. Sampling uses the pinned official implementation's defaults;
+TTS runs in NPU bf16 and the codec in CPU fp32. Models load locally without
+a download fallback. WAV values are saved without normalization or clipping.
+A valid WAV does not guarantee correct speech: listen for omissions, repetition
+and truncation at the token limit.
 
-Suite JSONL rows require nonempty `id`, `text`, `language`, `category` and
-`checks`. IDs are safe lowercase path components. Languages currently supported
-by the suite are English and Chinese. Normalized duplicate text and overlap
-with the supplied training manifest are rejected; pretraining overlap remains
-unknown. The bundled six prompts are regression probes, not a quality benchmark.
-
-## Artifacts and review
-
-Each case contains `base.wav`, `adapter.wav` and `comparison.json`. The suite
-adds `suite.json`, `reference.wav`, `listening.html`, `prompts.jsonl` and
-`review-template.json`. Reports contain effective generation settings, seeds,
-model/adapter/reference hashes, waveform statistics and observed EOS status.
-Float WAV preserves generated values without normalizing or clipping them.
-EOS and nonempty audio are structural checks, not content correctness.
-
-Keep the whole directory together and open `listening.html`. The page labels
-the two versions and provides direct audio links; it is not a blinded test.
-Listen to the reference, check content and endings, and fill only ratings you
-can judge. Unfilled scores stay null. Export the review JSON, then run:
-
-```bash
-python scripts/summarize_review.py \
-  --suite outputs/comparison-new/suite.json \
-  --review /data/reviews/human-review.json \
-  --output outputs/comparison-new/human-review-summary.json
-```
-
-The summarizer requires only Python's standard library. It verifies the suite
-and generated-audio hashes, row identities, coverage, score ranges and claimed
-completion. Output must not already exist. It reports content counts and raw
-human scores without calculating an automatic quality winner. `complete`
-means all fields were filled, including when every content rating is `fail`.
-
-## Tests and validation status
-
-`python tests/run.py --isolated` includes the generation/review CPU contracts.
-They cover default decoding, waveform preservation, generation observation,
-safe review artifacts, overlap rejection, score validation and output protection.
-For the targeted real-model workflow after installing dependencies:
-
-```bash
-MODEL_PATH="$MODEL_PATH" python tests/entrypoint/test_sampled_workflow_npu.py
-```
-
-It prepares two public fixtures, trains one update, reloads in a fresh process,
-generates six base/adapter pairs with default sampling, and reads the pending
-review template through the CLI. Generated artifacts remain under
-`outputs/sampled-workflow-*`; the temporary training checkpoint is discarded.
-`python tests/run.py --npu` runs this plus the full training regression.
-
-The earlier development implementation passed 21 remote workflow tests, and
-its twelve waveforms matched previously listened-to outputs sample for sample.
-This reorganized follow-up removes experimental branches and imports the
-packaged runtime, so it still needs its own targeted NPU run before upstream
-submission. Neither result establishes convergence or target-speaker similarity.
-
-
-## Match the training prefix
-
-Generation now defaults to `--conditioning_language Auto`, matching the
-training layout without an explicit language token. Suite `language` remains
-text metadata; each comparison records `effective_language`. The explicit
-`--conditioning_language prompt` option reproduces language-tagged conditioning
-and should only be used deliberately. `--language` defaults to Auto for a
-single pair. Both variants always use the same effective language.
-
-The prior Chinese-tagged evaluation did not match the Auto training prefix.
-The causal forward correction and Auto conditioning were tested together;
-their individual contributions to quality have not been isolated.
+For the optional real-model inference smoke test, provide `MODEL_PATH` and
+`CHECKPOINT_PATH`, then run `python tests/entrypoint/test_inference_npu.py`.
+It checks finite audio, not quality. HTML comparison pages, human-score
+collection and project acceptance workflows are outside this cookbook.

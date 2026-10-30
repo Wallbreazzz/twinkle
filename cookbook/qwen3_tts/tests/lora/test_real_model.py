@@ -26,14 +26,15 @@ import twinkle
 from twinkle import DeviceMesh
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tests"))
 sys.path.insert(0, str(ROOT))
 from tts.qwen3.data import build_assistant_text, build_qwen3_sample, collate_qwen3_batch
 from tts.qwen3.forward import qwen3_tts_forward_step
 from tts.qwen3.input_processor import Qwen3TTSInputProcessor
 from tts.qwen3.loss import Qwen3TTSLoss
 from tts.qwen3.tokenization import load_text_tokenizer, assert_tokenizers_match
-from tts.qwen3.runtime import (DEFAULT_MODEL_PATH, ADAPTER, data_config,
-    load_twinkle_model, trainable_snapshot, frozen_digest, assert_gradients, assert_updated)
+from tts.qwen3.runtime import DEFAULT_MODEL_PATH, ADAPTER, data_config, load_twinkle_model
+from model_assertions import trainable_snapshot, frozen_digest, assert_gradients, assert_updated
 
 spec = importlib.util.spec_from_file_location('prepare', ROOT / 'scripts/audio_features.py')
 prepare = importlib.util.module_from_spec(spec)

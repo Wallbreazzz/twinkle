@@ -1,6 +1,0 @@
-{"id":"en_statement","text":"The morning light shines through the window.","language":"English","category":"English statement","checks":"Check every word, sentence ending, and natural pacing."}
-{"id":"en_question","text":"Could you please tell me where the nearest station is?","language":"English","category":"English question","checks":"Check word completeness and question intonation."}
-{"id":"en_numbers","text":"The meeting starts at 9:30, and the ticket costs 25 dollars.","language":"English","category":"English time and amount","checks":"Check nine thirty and twenty-five dollars; record the actual reading."}
-{"id":"zh_statement","text":"今天的天气很好，我们下午一起去公园散步。","language":"Chinese","category":"中文陈述／跨语言","checks":"检查漏字、重复、句尾与自然停顿；不要仅依据音色判断中文准确性。"}
-{"id":"zh_amount","text":"本次付款金额为128.50元，请确认后再提交。","language":"Chinese","category":"中文金额／跨语言","checks":"检查数值和元单位是否正确；记录实际读法，合理等价读法均可接受。"}
-{"id":"zh_identifier","text":"请记录验证码507193，不要告诉其他人。","language":"Chinese","category":"中文编号／跨语言","checks":"逐位检查五、零、七、一（或幺）、九、三；不得漏位或改成数量读法。"}

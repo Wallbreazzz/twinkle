@@ -7,8 +7,7 @@ with a final short window, and restart at completed optimizer updates.
 
 It is a single-card reference implementation, not a quality-tuned training
 recipe. There are no changes to Twinkle core or its default dependencies.
-Paired generation and human-review tools are documented in [GENERATION.md](GENERATION.md).
-Experimental EOS handling is excluded; no automatic speaker-similarity metric is provided.
+A minimal adapter inference example is documented in [GENERATION.md](GENERATION.md).
 
 ## Installation and supported scope
 
@@ -142,14 +141,10 @@ Transformers, NumPy, scipy and soundfile, then run `python tests/run.py
 --isolated`. This mode explicitly substitutes Twinkle infrastructure and skips
 two official-package checks. It is not NPU or native Twinkle validation.
 
-Before upstream packaging, real 1.7B single-NPU runs covered nonzero LoRA
-gradients/updates, unchanged frozen parameters, exact saved/reloaded adapter
-weights, accumulation tails and restart in separate processes. Final adapter
-weights matched exactly in the resume comparison; optimizer states were
-compared with rtol=1e-3/atol=1e-5. Those results do not establish long-training
-stability, speaker similarity or fine-tuning quality. The four-layer training tree passed its final 40-test NPU regression.
-The additional generation/review packaging requires a new targeted NPU regression;
-CPU checks alone do not validate the reorganized generation entry point.
+The CPU suite checks data, losses and boundary contracts. The opt-in NPU
+suite exercises local-model parameter updates, reload and process recovery.
+Passing these tests does not establish voice quality or convergence on a new
+dataset. Select training settings and checkpoints using held-out speech.
 
 ## Integration boundaries
 
@@ -161,23 +156,3 @@ defaults and calls `_lazy_wrap_model` when inspecting/loading wrapped weights.
 These internal dependencies are isolated here and should be reviewed when
 Twinkle changes. A public generic TTS abstraction should only be added if
 maintainers identify a reusable need; this cookbook does not add one prematurely.
-
-
-## Causal conditioning correction
-
-Residual-codebook training uses the Talker state **before** consuming the target
-audio frame, matching generation's `past_hidden`. Selecting the state at the
-target frame leaks its codebook embeddings into the conditioning. A regression
-changes the target residual codes and checks that the current conditioning stays
-unchanged while the next frame's conditioning changes. Earlier update/reload
-tests did not establish this causal equivalence.
-
-The corrected forward and targeted contracts were validated on a single Ascend
-NPU workflow, followed by real-data multi-step training and paired listening.
-These results do not establish quality for arbitrary datasets or checkpoints.
-
-The `1e-4` CLI default is an example, not a tuned recommendation. In one small
-single-speaker evaluation, `2e-5` with rank 8, alpha 16, dropout 0.1 and 70
-updates preserved content better than `1e-4`; later checkpoints were not always
-better. Treat these as dataset-specific observations and select checkpoints
-with held-out content and listening, not training loss alone.
