@@ -11,16 +11,17 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tests"))
 sys.path.insert(0, str(ROOT / 'tests/lora'))
 import test_real_model as baseline  # local-only imports and shared fixture utilities
 import numpy as np
 import torch
 from peft import LoraConfig
-from tts.qwen3.runtime import (ADAPTER, DEFAULT_MODEL_PATH, load_twinkle_model, data_config,
-                            trainable_snapshot, frozen_digest, assert_updated)
+from tts.qwen3.runtime import ADAPTER, DEFAULT_MODEL_PATH, load_twinkle_model, data_config
+from model_assertions import trainable_snapshot, frozen_digest, assert_updated
 from tts.qwen3.data import build_assistant_text, build_qwen3_sample, collate_qwen3_batch
 from tts.qwen3.tokenization import load_text_tokenizer
-from tts.qwen3.speech_fixture import load_speech_fixture
+from speech_fixture import load_speech_fixture
 from tts.qwen3.input_processor import Qwen3TTSInputProcessor
 from tts.qwen3.loss import Qwen3TTSLoss
 from tts.qwen3.training import Progress, windows, train_window, save_boundary, resume_boundary

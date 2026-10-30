@@ -17,17 +17,3 @@ Run `python tests/lora/test_contracts.py` (or add `--isolated-twinkle`). Native 
 Run `python tests/training/test_contracts.py`. Native recovery: `MODEL_PATH=/models/Qwen3-TTS-12Hz-1.7B-Base ASCEND_RT_VISIBLE_DEVICES=0 python tests/training/test_resume_npu.py`. Public LibriSpeech fixtures and attribution accompany these tests.
 
 The final series tree is byte-identical to the integrated training baseline 0466bd2 that passed 40 tests on one Ascend NPU. Individual intermediate layers receive CPU checks; they have not independently been rerun on NPU. No convergence or voice-similarity result is claimed. The model bridge depends on Twinkle internal optimizer-group and wrapping APIs; these remain confined to this cookbook.
-
-
-## Causal conditioning correction
-
-Residual-codebook training uses the Talker state **before** consuming the target
-audio frame, matching generation's `past_hidden`. Selecting the state at the
-target frame leaks its codebook embeddings into the conditioning. A regression
-changes the target residual codes and checks that the current conditioning stays
-unchanged while the next frame's conditioning changes. Earlier update/reload
-tests did not establish this causal equivalence.
-
-The corrected forward and targeted contracts were validated on a single Ascend
-NPU workflow, followed by real-data multi-step training and paired listening.
-These results do not establish quality for arbitrary datasets or checkpoints.

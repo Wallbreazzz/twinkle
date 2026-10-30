@@ -16,7 +16,7 @@ def install(root):
         sys.modules[name] = obj
         return obj
 
-    for name, path in [('tts', 'tts'), ('tts.common', 'tts/common'), ('tts.qwen3', 'tts/qwen3')]:
+    for name, path in [('tts', 'tts'), ('tts.qwen3', 'tts/qwen3')]:
         module(name, __path__=[str(root / path)])
 
     class Processor:
@@ -42,5 +42,3 @@ def install(root):
     module('twinkle.infra', collect_tensor_dict=lambda x: x)
     module('twinkle.model')
     module('twinkle.model.transformers', TransformersModel=object)
-    from tts.common.multi_codebook_loss import MultiCodebookLoss
-    sys.modules['tts.common'].MultiCodebookLoss = MultiCodebookLoss
